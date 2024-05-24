@@ -40,10 +40,12 @@ Follow these steps to install Tampermonkey and then install the Kaufland Visitor
 
 3. Tampermonkey should detect the script and prompt you to install it. You will see a Tampermonkey installation dialog.
 4. Click the "Install" button in the Tampermonkey dialog to install the script.
+5. To work with script just open "https://www.kaufland.de/" page in your browser with installed script.
 
 ### Summary
 
 1. Install Tampermonkey extension in your browser.
 2. Navigate to the raw URL of the userscript to install it.
+3. Navigate to target site to start with script.
 
 After following these steps, the Kaufland Visitor userscript will be installed and active in your browser via Tampermonkey.
