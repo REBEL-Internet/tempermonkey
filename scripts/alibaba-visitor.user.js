@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Alibaba visitor
 // @namespace    alibaba
-// @version      2024-05-26
+// @version      2024-05-27
 // @description  Alibaba visitor
 // @author       You
 // @match        https://www.alibaba.com/*
