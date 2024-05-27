@@ -74,7 +74,7 @@ async function mainHandler() {
         await waitForState();
         if (
             window.location.href === 'https://www.alibaba.com/'
-            && (!SEARCH_DATA.step || SEARCH_DATA.step === Step.SEARCHING)
+            && (!SEARCH_DATA?.step || SEARCH_DATA.step === Step.SEARCHING)
         ) {
             setSearchData({step: undefined})
         };
