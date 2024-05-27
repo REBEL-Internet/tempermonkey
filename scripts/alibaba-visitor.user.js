@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Alibaba visitor
-// @namespace    http://tampermonkey.net/
+// @namespace    alibaba
 // @version      2024-05-26
 // @description  Alibaba visitor
 // @author       You
