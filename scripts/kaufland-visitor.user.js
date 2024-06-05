@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.05.22
-// @description  try to take over the world!
+// @version      2024.06.05
+// @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kaufland.de
@@ -16,8 +16,8 @@ try {
 }
 
 const scrollOptions = {
-    distance: 70,
-    timeout: 20,
+    distance: 60,
+    timeout: 15,
     wait: {
         timeout: 500,
         everyDistance: 200000
@@ -53,7 +53,7 @@ async function scrollToTop() {
 
 (async function() {
     'use strict';
-     window.addEventListener('load', mainHandler);
+    window.addEventListener('load', mainHandler);
 })();
 
 async function mainHandler() {
@@ -99,6 +99,8 @@ async function handleSearchPage() {
         await scrollToBottom()
     }
 
+    //https://www.kaufland.de/s/?page=6&search_value=t-shirt
+
     if (!window.location.href.includes('/s/')) return false;
     await waitSearchPageLoaded()
 
@@ -122,7 +124,13 @@ async function handleSearchPage() {
         return true;
     }
 
-    if (pageIndex >= SEARCH_DATA.maxPages) {
+    if (pageIndex === 1 && SEARCH_DATA.startPage > 1) {
+        window.location.href = window.location.href + '&page=' + SEARCH_DATA.startPage;
+        await wait(1000)
+        return true
+    }
+
+    if (pageIndex >= SEARCH_DATA.maxPages + SEARCH_DATA.startPage - 1) {
         endWithError('Done: all pages are searched')
         return true
     }
@@ -204,7 +212,7 @@ function waitForElement(selector) {
     });
 }
 
- // Function to create and dispatch a mouse event
+// Function to create and dispatch a mouse event
 function createMouseEvent(type, x, y) {
     try {
         const event = new MouseEvent(type, {
@@ -328,18 +336,18 @@ function showForm() {
     // Create a div to contain the form
     const formContainer = document.createElement('div');
     formContainer.style.position = 'fixed';
-        formContainer.style.top = '50%';
-        formContainer.style.left = '50%';
-        formContainer.style.transform = 'translate(-50%, -50%)';
-        formContainer.style.backgroundColor = '#333';
-        formContainer.style.color = '#fff';
-        formContainer.style.padding = '20px';
-        formContainer.style.border = '2px solid #444';
-        formContainer.style.borderRadius = '10px';
-        formContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
-        formContainer.style.zIndex = '10000';
-        formContainer.style.maxWidth = '300px';
-        formContainer.style.width = '100%';
+    formContainer.style.top = '50%';
+    formContainer.style.left = '50%';
+    formContainer.style.transform = 'translate(-50%, -50%)';
+    formContainer.style.backgroundColor = '#333';
+    formContainer.style.color = '#fff';
+    formContainer.style.padding = '20px';
+    formContainer.style.border = '2px solid #444';
+    formContainer.style.borderRadius = '10px';
+    formContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+    formContainer.style.zIndex = '10000';
+    formContainer.style.maxWidth = '300px';
+    formContainer.style.width = '100%';
 
 
     // Create the form HTML
@@ -351,6 +359,8 @@ function showForm() {
                 <input type="text" id="keyword" name="keyword" value="t-shirt"><br><br>
                 <label for="maxPages">Max pages</label><br>
                 <input type="text" id="maxPages" name="maxPages" value="10"><br><br>
+                <label for="startPage">Start page</label><br>
+                <input type="text" id="startPage" name="startPage" value="1"><br><br>
                 <button type="submit">Run script</button>
                 <button type="button" id="cancelButton">Cancel</button>
             </form>
@@ -364,6 +374,7 @@ function showForm() {
         event.preventDefault();
         SEARCH_DATA = {
             maxPages: parseInt(document.getElementById('maxPages').value),
+            startPage: parseInt(document.getElementById('startPage').value),
             keyword: document.getElementById('keyword').value,
             productId: document.getElementById('productId').value,
             active: true
