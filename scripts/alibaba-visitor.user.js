@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Alibaba visitor
 // @namespace    alibaba
-// @version      2024-05-27
+// @version      2024-06-06
 // @description  Alibaba visitor
 // @author       You
 // @match        https://www.alibaba.com/*
@@ -19,6 +19,7 @@ try {
     SEARCH_DATA = JSON.parse(sessionStorage.getItem('searchData'))
 } catch (e) {
     console.log(e)
+    setSearchData({})
 }
 
 function setSearchData(value) {
@@ -107,7 +108,7 @@ async function handleHomePage() {
     const input = await waitForElement('input.search-bar-input')
     await typeText(input, textSearch)
     await wait(300)
-    document.querySelector('div[data-spm="search"] button').click();
+    document.querySelector('div[class*="header-search-bar"] button').click();
     return true;
 }
 
@@ -123,8 +124,8 @@ function simulateReactChange(element) {
 
 async function handleSearchPage() {
     async function currentPage() {
-        const selector = 'div.seb-pagination__pages span.active'
-        const item = await waitForElement(selector);
+        const item = document.querySelector('div.seb-pagination__pages span.active');
+        if (!item) return 1;
         return parseInt(item.innerText)
     }
 
@@ -132,6 +133,13 @@ async function handleSearchPage() {
         await waitForState();
         await waitForElement('div.app-organic-search__main-body div.organic-list')
         await scrollToBottom()
+        await wait(1000);
+        window.scrollBy(0, 50); // additional fix for slow proxy to make pagination appears
+        try {
+            await waitForElement('div.seb-pagination__pages')
+        } catch (e) {
+            console.log(e)
+        }
     }
 
     if (!window.location.href.includes('/search')) return false;
@@ -409,7 +417,7 @@ function showForm() {
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             color: #fff;
-            max-width: 250px;
+            max-width: 300px;
             width: 100%;
             z-index: 1000;
         }
