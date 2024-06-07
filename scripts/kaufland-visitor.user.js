@@ -7,7 +7,7 @@
 // @match        https://www.kaufland.de/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kaufland.de
 // @require      http://localhost:8000/utils.js
-// @require      https://github.com/REBEL-Internet/tempermonkey/raw/main/scripts/releases/1.0.0/utils.js
+// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.0/utils.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
