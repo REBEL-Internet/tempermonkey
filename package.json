@@ -1,0 +1,15 @@
+{
+  "name": "tempermonkey",
+  "version": "1.0.0",
+  "description": "Follow these steps to install Tampermonkey and then install the Kaufland Visitor userscript from the provided GitHub link.",
+  "main": "index.js",
+  "scripts": {
+    "start:dev": "node ./dev-server/dev-server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

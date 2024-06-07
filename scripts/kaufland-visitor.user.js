@@ -1,55 +1,17 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.06.05
+// @version      2024.06.07
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kaufland.de
+// @require      http://localhost:8000/utils.js
+// @require      https://github.com/REBEL-Internet/tempermonkey/raw/main/scripts/releases/1.0.0/utils.js
+// @grant        GM_addStyle
 // ==/UserScript==
 
-let SEARCH_DATA
-try {
-    SEARCH_DATA = JSON.parse(sessionStorage.getItem('searchData'))
-} catch (e) {
-    console.log(e)
-}
-
-const scrollOptions = {
-    distance: 60,
-    timeout: 15,
-    wait: {
-        timeout: 500,
-        everyDistance: 200000
-    }
-}
-
-async function scrollToBottom() {
-    let prev;
-    let tmp = 0;
-    while(true) {
-        if (window.scrollY === prev) {
-            await wait(2000)
-            if (window.scrollY === prev) break;
-        }
-        prev = window.scrollY;
-        window.scrollBy(0, scrollOptions.distance);
-        tmp += scrollOptions.distance
-        if (tmp >= scrollOptions.wait.everyDistance) {
-            await wait(scrollOptions.wait.timeout)
-            tmp = 0;
-        } else {
-            await wait(scrollOptions.timeout)
-        }
-    }
-}
-
-async function scrollToTop() {
-    while(window.scrollY > 0) {
-        window.scrollBy(0, -scrollOptions.distance);
-        await wait(scrollOptions.timeout)
-    }
-}
+const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
     'use strict';
@@ -57,22 +19,37 @@ async function scrollToTop() {
 })();
 
 async function mainHandler() {
-    await waitForState();
-    console.dir(SEARCH_DATA)
-    if (!SEARCH_DATA?.active) {
-        stopBlinkingTitle()
-        if (window.location.href === 'https://www.kaufland.de/') showForm();
-        return;
-    } else {
-        createBlinkingTitle()
-    }
+    try {
+        console.dir('Main handler:', SEARCH_DATA)
+        await waitForState();
+        if (
+            window.location.href === MAIN_PAGE_URL
+            && (!SEARCH_DATA?.step || SEARCH_DATA.step === Step.SEARCHING)
+        ) {
+            setSearchData({step: undefined})
+        };
 
-    if (await handleHomePage()) return;
-    if (await handleSearchPage()) return;
+        if (!SEARCH_DATA?.step) {
+            stopBlinkingTitle()
+            if (window.location.href === MAIN_PAGE_URL) {
+                await wait(1000);
+                showStartVisitorForm();
+            }
+            return;
+        } else {
+            createBlinkingTitle()
+        }
+
+        if (await handleHomePage()) return;
+        if (await handleSearchPage()) return;
+    } catch (e) {
+        console.error(e)
+        endWithError(e.toString())
+    }
 }
 
 async function handleHomePage() {
-    if (window.location.href !== 'https://www.kaufland.de/') return false;
+    if (window.location.href !== MAIN_PAGE_URL) return false;
     const textSearch = SEARCH_DATA.keyword;
     if (!textSearch) return true;
 
@@ -99,10 +76,42 @@ async function handleSearchPage() {
         await scrollToBottom()
     }
 
+    async function inputPrices() {
+        const inputs = await waitForElements('div.range-filter__input input')
+        let needClick = false;
+        if (SEARCH_DATA.minPrice) {
+            inputs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await typeText(inputs[0], SEARCH_DATA.minPrice.toString())
+            await wait(300)
+            needClick = true;
+        }
+        if (SEARCH_DATA.maxPrice) {
+            inputs[1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await typeText(inputs[1], SEARCH_DATA.maxPrice.toString())
+            await wait(300)
+            needClick = true;
+        }
+
+        // TODO: input price values do not cause change event on 'div.app-organic-search__left-body'
+        // On that event value of link is modified in anchor 'div.filter-price-group a.price-ok'
+        // which is clicked to apply prices. For now I just manually modify href of the link
+
+        setSearchData({step: Step.SEARCHING})
+        if (needClick) {
+            document.querySelector('div.filter--range span.range-filter__link').click();
+            return true;
+        }
+        return false;
+    }
+
     //https://www.kaufland.de/s/?page=6&search_value=t-shirt
 
     if (!window.location.href.includes('/s/')) return false;
     await waitSearchPageLoaded()
+
+    if (SEARCH_DATA.step === Step.INPUT_PRICE) {
+        if (await inputPrices()) return true;
+    }
 
     const pageIndex = await currentPage();
 
@@ -144,147 +153,6 @@ async function handleSearchPage() {
     btn.click()
     setTimeout(mainHandler, 0);
     return true;
-}
-
-// complete, interactive, loading
-async function waitForState(states = ['complete'], timeout = 10000) {
-    const endAt = new Date().getTime() + timeout;
-    while (!states.includes(document.readyState)) {
-        if (new Date().getTime() > endAt) {
-            endWithError('Page is not loaded')
-            return;
-        }
-        await wait(1000)
-    }
-}
-
-function endWithError(message) {
-    SEARCH_DATA.active = false;
-    alert(message);
-    throw new Error(message)
-}
-
-function endWithSuccess(message) {
-    SEARCH_DATA.active = false;
-    alert(message);
-}
-
-async function typeText(element, text, delay = 100) {
-    let i = 0;
-    while (i < text.length) {
-        let char = text.charAt(i);
-        let keydownEvent = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: char });
-        let keypressEvent = new KeyboardEvent('keypress', { bubbles: true, cancelable: true, key: char });
-        let inputEvent = new Event('input', { bubbles: true, cancelable: true });
-        let keyupEvent = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: char });
-
-        element.dispatchEvent(keydownEvent);
-        element.value += char;
-        element.dispatchEvent(keypressEvent);
-        element.dispatchEvent(inputEvent);
-        element.dispatchEvent(keyupEvent);
-
-        i++;
-        await wait(delay)
-    }
-}
-
-async function wait(delay = 100) {
-    await new Promise(r => setTimeout(r, delay))
-}
-
-function waitForElement(selector) {
-    const element = document.querySelector(selector);
-    if (element) return element;
-    return new Promise((resolve) => {
-        const observer = new MutationObserver((mutations, me) => {
-            const element = document.querySelector(selector);
-            if (element) {
-                me.disconnect(); // Stop observing
-                resolve(element);
-            }
-        });
-
-        observer.observe(document, {
-            childList: true,
-            subtree: true
-        });
-    });
-}
-
-// Function to create and dispatch a mouse event
-function createMouseEvent(type, x, y) {
-    try {
-        const event = new MouseEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            view: window.target,
-            clientX: x,
-            clientY: y
-        });
-        document.dispatchEvent(event);
-    } catch (e) {
-        console.log(e)
-    }
-}
-
-function triggerFocusIn(element) {
-    const focusInEvent = new FocusEvent('focusin', {
-        view: window.target,
-        bubbles: true,
-        cancelable: true
-    });
-    element.dispatchEvent(focusInEvent);
-}
-
-function triggerMouseEnter(element) {
-    const mouseEnterEvent = new MouseEvent('mouseenter', {
-        view: window.target,
-        bubbles: true,
-        cancelable: true,
-        clientX: element.getBoundingClientRect().left + (element.clientWidth / 2),
-        clientY: element.getBoundingClientRect().top + (element.clientHeight / 2)
-    });
-    element.dispatchEvent(mouseEnterEvent);
-}
-
-// Function to simulate mouse movement from one point to another
-function moveMouse(fromX, fromY, toX, toY, steps = 10, interval = 100) {
-    let currentX = fromX;
-    let currentY = fromY;
-    const deltaX = (toX - fromX) / steps;
-    const deltaY = (toY - fromY) / steps;
-    let step = 0;
-
-    function move() {
-        if (step <= steps) {
-            createMouseEvent('mousemove', currentX, currentY);
-            currentX += deltaX;
-            currentY += deltaY;
-            step++;
-            setTimeout(move, interval);
-        } else {
-            createMouseEvent('mousemove', toX, toY);
-        }
-    }
-    move();
-}
-
-function moveMouseToElement(element) {
-    const rect = element.getBoundingClientRect();
-    const mouseMoveEvent = new MouseEvent('mousemove', {
-        view: window.target,
-        bubbles: true,
-        cancelable: true,
-        clientX: rect.left + (rect.width / 2),
-        clientY: rect.top + (rect.height / 2)
-    });
-    element.dispatchEvent(mouseMoveEvent);
-}
-
-function scrollToElement(selector) {
-    const element = document.querySelector(selector);
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function findProductOnPage(id) {
@@ -329,96 +197,4 @@ function getProductIdFromUrl(url) {
     const matches = url.match(/\/product\/(\d+)\//i);
     if (!matches || !matches.length) throw new Error(`Wrong url to Kaufland product ${url}`);
     return matches[1];
-}
-
-// Function to create and show the form
-function showForm() {
-    // Create a div to contain the form
-    const formContainer = document.createElement('div');
-    formContainer.style.position = 'fixed';
-    formContainer.style.top = '50%';
-    formContainer.style.left = '50%';
-    formContainer.style.transform = 'translate(-50%, -50%)';
-    formContainer.style.backgroundColor = '#333';
-    formContainer.style.color = '#fff';
-    formContainer.style.padding = '20px';
-    formContainer.style.border = '2px solid #444';
-    formContainer.style.borderRadius = '10px';
-    formContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
-    formContainer.style.zIndex = '10000';
-    formContainer.style.maxWidth = '300px';
-    formContainer.style.width = '100%';
-
-
-    // Create the form HTML
-    formContainer.innerHTML = `
-            <form id="inputForm">
-                <label for="productId">Product id:</label><br>
-                <input type="text" id="productId" name="productId" value="403251342"><br><br>
-                <label for="keyword">Keyword:</label><br>
-                <input type="text" id="keyword" name="keyword" value="t-shirt"><br><br>
-                <label for="maxPages">Max pages</label><br>
-                <input type="text" id="maxPages" name="maxPages" value="10"><br><br>
-                <label for="startPage">Start page</label><br>
-                <input type="text" id="startPage" name="startPage" value="1"><br><br>
-                <button type="submit">Run script</button>
-                <button type="button" id="cancelButton">Cancel</button>
-            </form>
-        `;
-
-    // Append the form container to the body
-    document.body.appendChild(formContainer);
-
-    // Handle form submission
-    document.getElementById('inputForm').addEventListener('submit', function(event) {
-        event.preventDefault();
-        SEARCH_DATA = {
-            maxPages: parseInt(document.getElementById('maxPages').value),
-            startPage: parseInt(document.getElementById('startPage').value),
-            keyword: document.getElementById('keyword').value,
-            productId: document.getElementById('productId').value,
-            active: true
-        }
-        console.log('Search data:', SEARCH_DATA);
-        sessionStorage.setItem('searchData', JSON.stringify(SEARCH_DATA))
-        // Remove the form after submission
-        document.body.removeChild(formContainer);
-        mainHandler()
-    });
-
-    // Handle form cancellation
-    document.getElementById('cancelButton').addEventListener('click', function() {
-        document.body.removeChild(formContainer);
-    });
-}
-
-let titleInterval;
-
-function stopBlinkingTitle() {
-    if (titleInterval) clearInterval(titleInterval);
-}
-
-function createBlinkingTitle() {
-    // Create a div to contain the title
-    const titleDiv = document.createElement('div');
-    titleDiv.textContent = 'AUTOMATION RUNNING...';
-    titleDiv.style.position = 'fixed';
-    titleDiv.style.top = '10px';
-    titleDiv.style.left = '10px';
-    titleDiv.style.backgroundColor = 'green';
-    titleDiv.style.color = 'white';
-    titleDiv.style.padding = '15px 20px';
-    titleDiv.style.borderRadius = '5px';
-    titleDiv.style.zIndex = '10000';
-    titleDiv.style.fontSize = '16px';
-    titleDiv.style.fontWeight = 'bold';
-    titleDiv.style.textAlign = 'center';
-
-    // Append the title div to the body
-    document.body.appendChild(titleDiv);
-
-    // Function to handle the blinking effect
-    titleInterval = setInterval(() => {
-        titleDiv.style.visibility = (titleDiv.style.visibility === 'hidden') ? 'visible' : 'hidden';
-    }, 500); // Blink interval in milliseconds
 }
