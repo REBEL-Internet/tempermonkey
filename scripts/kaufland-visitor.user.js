@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.06.10.002
+// @version      2024.06.10.003
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kaufland.de
 // @require      http://localhost:8000/utils.js
-// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.1/utils.js
+// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.2/utils.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2024.06.10.002'
+const MAIN_SCRIPT_VERSION = '2024.06.10.003'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
