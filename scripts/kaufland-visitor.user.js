@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.06.10
+// @version      2024.06.10.001
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -39,7 +39,6 @@ async function mainHandler() {
         } else {
             createBlinkingTitle()
         }
-
         if (await handleHomePage()) return;
         if (await handleSearchPage()) return;
     } catch (e) {
