@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.06.07
+// @version      2024.06.10
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -72,6 +72,9 @@ async function handleSearchPage() {
 
     async function waitSearchPageLoaded() {
         await waitForState();
+        await waitForElement('div.results article.product')
+        const spans = Array.from(document.querySelectorAll('div.results article.product > span'));
+        if (spans.length) triggerMouseEnter(spans[0]); // additional trigger to load anchors
         await waitForElement('div.results article.product a.product-link')
         await scrollToBottom()
     }
@@ -99,12 +102,11 @@ async function handleSearchPage() {
         setSearchData({step: Step.SEARCHING})
         if (needClick) {
             document.querySelector('div.filter--range span.range-filter__link').click();
+            setTimeout(mainHandler, 0);
             return true;
         }
         return false;
     }
-
-    //https://www.kaufland.de/s/?page=6&search_value=t-shirt
 
     if (!window.location.href.includes('/s/')) return false;
     await waitSearchPageLoaded()
