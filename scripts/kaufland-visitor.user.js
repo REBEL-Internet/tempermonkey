@@ -1,16 +1,17 @@
 // ==UserScript==
 // @name         Kaufland visitor
 // @namespace    kaufland
-// @version      2024.06.10.001
+// @version      2024.06.10.002
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kaufland.de
 // @require      http://localhost:8000/utils.js
-// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.0/utils.js
+// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.1/utils.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
+const MAIN_SCRIPT_VERSION = '2024.06.10.002'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -33,7 +34,9 @@ async function mainHandler() {
             stopBlinkingTitle()
             if (window.location.href === MAIN_PAGE_URL) {
                 await wait(1000);
-                showStartVisitorForm();
+                showStartVisitorForm({
+                    version: MAIN_SCRIPT_VERSION
+                });
             }
             return;
         } else {

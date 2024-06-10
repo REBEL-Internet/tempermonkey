@@ -1,5 +1,5 @@
-const RELEASE_DATE = '2024.06.07'
-const UTILS_VERSION = '1.0.0'
+const RELEASE_DATE = '2024.06.10'
+const UTILS_VERSION = '1.0.1'
 console.log(`Utils version: ${UTILS_VERSION} at ${RELEASE_DATE}`)
 
 const Step = {
@@ -267,7 +267,7 @@ function createBlinkingTitle() {
     }, 500); // Blink interval in milliseconds
 }
 
-function showStartVisitorForm() {
+function showStartVisitorForm(formData) {
     // Create a div to contain the form
     const formContainer = document.createElement('div');
     formContainer.id = 'dark-form-container'
@@ -314,20 +314,21 @@ function showStartVisitorForm() {
     // Create the form HTML
     formContainer.innerHTML = `
             <form id="inputForm">
-                <label for="productId">Product id:</label><br>
-                <input type="text" id="productId" name="productId" value="1600930534720"><br><br>
-                <label for="keyword">Keyword:</label><br>
-                <input type="text" id="keyword" name="keyword" value="iphone 15 pro max"><br><br>
-                <label for="maxPages">Max pages</label><br>
-                <input type="text" id="maxPages" name="maxPages" value="10"><br><br>
-                <label for="startPage">Start page</label><br>
-                <input type="text" id="startPage" name="startPage" value="1"><br><br>
+                <label for="productId">Product id:</label><br/>
+                <input type="text" id="productId" name="productId" value="1600930534720"><br/><br/>
+                <label for="keyword">Keyword:</label><br/>
+                <input type="text" id="keyword" name="keyword" value="iphone 15 pro max"><br/><br/>
+                <label for="maxPages">Max pages</label><br/>
+                <input type="text" id="maxPages" name="maxPages" value="10"><br/><br/>
+                <label for="startPage">Start page</label><br/>
+                <input type="text" id="startPage" name="startPage" value="1"><br/><br/>
                 <label for="minPrice">Price (optional):</label><br/>
                 <input type="text" style="width: 95px" id="minPrice" name="minPrice" placeholder="Min" value="">
                 &nbsp;-&nbsp;
-                <input type="text" style="width: 95px" id="maxPrice" name="maxPrice" placeholder="Max" value=""><br><br>
+                <input type="text" style="width: 95px" id="maxPrice" name="maxPrice" placeholder="Max" value=""><br/><br/>
                 <button type="submit">Run script</button>
-                <button type="button" style="margin-left: 53px; color: #aaa" id="cancelButton">Cancel</button>
+                <button type="button" style="margin-left: 53px; color: #aaa" id="cancelButton">Cancel</button><br/><br/>
+                <span><small>v. ${formData?.version ?? '???'}</small></span>
             </form>
         `;
 

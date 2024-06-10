@@ -1,16 +1,17 @@
 // ==UserScript==
 // @name         Alibaba visitor
 // @namespace    alibaba
-// @version      2024-06-07
+// @version      2024-06-10
 // @description  Alibaba visitor
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.alibaba.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=alibaba.com
 // @require      http://localhost:8000/utils.js
-// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.0/utils.js
+// @require      https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/releases/1.0.1/utils.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
+const MAIN_SCRIPT_VERSION = '2024.06.10'
 const MAIN_PAGE_URL = 'https://www.alibaba.com/';
 
 (async function() {
@@ -33,7 +34,9 @@ async function mainHandler() {
             stopBlinkingTitle()
             if (window.location.href === 'https://www.alibaba.com/') {
                 await wait(1000);
-                showStartVisitorForm();
+                showStartVisitorForm({
+                    version: MAIN_SCRIPT_VERSION
+                });
             }
             return;
         } else {
