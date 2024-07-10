@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2024.07.10.001
+// @version      2024.07.10.002
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -13,7 +13,7 @@
 // @grant        GM_deleteValue
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2024.06.10.001'
+const MAIN_SCRIPT_VERSION = '2024.06.10.002'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
