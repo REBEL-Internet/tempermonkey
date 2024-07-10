@@ -450,6 +450,7 @@ async function scrapeSellerData(sellerId) {
         const sellerInfo = response.response.sellerInformation;
         return {
             id: sellerId,
+            foundAt: new Date().toISOString(),
             name: sellerInfo.name,
             emails: extractEmailsFromSellerText(sellerInfo.legalData.imprint),
             sellerCountryISO: sellerInfo.sellerCountryISO
@@ -493,9 +494,9 @@ function downloadCsv(sellers) {
 function createLinkWithCsv(sellers) {
     if (sellers.length === 0) return null;
     const csvContent =
-        'SellerId,Name,Email,EmailFixed\n'
+        'Found,SellerId,Name,Email,EmailFixed\n'
         + Object.values(sellers).map(
-            s => `"${s.id}","${s.name}","${s.emails[0] ?? 'not found'}","${s.emails[0]?.slice(2) ?? 'not found'}"`
+            s => `"${s.foundAt}","${s.id}","${s.name}","${s.emails[0] ?? 'not found'}","${s.emails[0]?.slice(2) ?? 'not found'}"`
         ).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
