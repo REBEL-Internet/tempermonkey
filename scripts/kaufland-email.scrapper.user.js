@@ -377,7 +377,7 @@ function showStartForm(formData) {
 }
 
 function extractUniqueSellerIds(content) {
-    const regex = /id_seller=(\d+)&/g;
+    const regex = /(?:id_seller|sellerId)=(\d+)/g;
     const ids = new Set();  // Use a Set to store unique IDs
     let match;
 
