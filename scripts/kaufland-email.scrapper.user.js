@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2024.07.10.002
+// @version      2024.12.03.000
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -13,7 +13,7 @@
 // @grant        GM_deleteValue
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2024.06.10.002'
+const MAIN_SCRIPT_VERSION = '2024.12.03.000'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -26,7 +26,48 @@ if (!localStorage.getItem('sellers')) {
     localStorage.setItem('sellers', JSON.stringify({}))
 }
 
+if (!localStorage.getItem('categoryUrls')) {
+    localStorage.setItem('categoryUrls', JSON.stringify([]))
+}
+
+
 let titleDiv;
+
+//========CATEGORIES==========================================
+
+function addCategoryUrl(categoryUrl) {
+    const existed = getCategoryUrls()
+    const set = new Set(existed);
+    set.add(categoryUrl)
+    const modified = Array.from(set);
+    localStorage.setItem('categoryUrls', JSON.stringify(modified));
+    if (titleDiv) {
+        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(modified)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
+    }
+}
+
+function popNextCategoryUrl() {
+    const existed = getCategoryUrls()
+    if (!existed.length) return null;
+    const url = existed.pop();
+    localStorage.setItem('categoryUrls', JSON.stringify(existed));
+    if (titleDiv) {
+        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(existed)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
+    }
+    return url;
+}
+
+function getCategoryUrls() {
+    try {
+        const urls = JSON.parse(localStorage.getItem('categoryUrls'))
+        if (Array.isArray(urls)) return urls;
+    } catch (e) {
+    }
+    localStorage.setItem('categoryUrls', JSON.stringify([]))
+    return [];
+}
+
+//======SELLERS===================================================
 
 function addSeller(seller) {
     const existed = getSellers()
@@ -56,6 +97,8 @@ function getSellers() {
     localStorage.setItem('sellers', JSON.stringify({}))
     return {};
 }
+
+//================================================================
 
 async function mainHandler() {
     //await scrapeAllSellersOnPage()
@@ -102,6 +145,14 @@ async function mainHandler() {
 
 async function handleHomePage() {
     if (window.location.href !== MAIN_PAGE_URL) return false;
+
+    if (SEARCH_DATA.step === 'CATEGORY_SEARCH') {
+        const categoryUrl = SEARCH_DATA.keyword
+        window.location.href = categoryUrl;
+        await wait(1000)
+        return true
+    }
+
     const textSearch = SEARCH_DATA.keyword;
     if (!textSearch) return true;
 
@@ -115,11 +166,26 @@ async function handleHomePage() {
     return true;
 }
 
+async function hasSubCategoryUrls() {
+    return !!document.querySelector('div#hub-category-filters');
+}
+
+async function scrapeAllSubCategoryUrls() {
+    const items = Array.from(document.querySelectorAll('div#hub-category-filters a'));
+    const result = [];
+
+    for (const item of items) {
+        result.push(item.getAttribute('href'))
+    }
+    console.log(`Found ${JSON.stringify(result?.length)} subcategories`);
+    return result;
+}
+
 async function handleSearchPage() {
     async function currentPage() {
-        await waitForElement('span.rd-page--current')
+        await waitForState();
         const item = document.querySelector('span.rd-page--current');
-        return parseInt(item.innerText)
+        return item ? parseInt(item.innerText) : 1;
     }
 
     async function waitSearchPageLoaded() {
@@ -128,6 +194,11 @@ async function handleSearchPage() {
         const spans = Array.from(document.querySelectorAll('div.results article.product > span'));
         if (spans.length) triggerMouseEnter(spans[0]); // additional trigger to load anchors
         await waitForElement('div.results article.product a.product-link')
+        await scrollToBottom()
+    }
+
+    async function waitCategoryPageLoaded() {
+        await waitForState();
         await scrollToBottom()
     }
 
@@ -160,39 +231,107 @@ async function handleSearchPage() {
         return false;
     }
 
-    if (!window.location.href.includes('/s/')) return false;
-    await waitSearchPageLoaded()
+    async function handleSearchPages() {
+        await waitSearchPageLoaded()
 
-    if (SEARCH_DATA.step === Step.INPUT_PRICE) {
-        if (await inputPrices()) return true;
-    }
+        if (SEARCH_DATA.step === Step.INPUT_PRICE) {
+            if (await inputPrices()) return true;
+        }
 
-    await wait(3000);
-    await scrapeAllSellersOnPage();
+        await wait(3000);
+        await scrapeAllSellersOnPage();
 
-    const pageIndex = await currentPage();
-    if (pageIndex === 1 && SEARCH_DATA.startPage > 1) {
-        window.location.href = window.location.href + '&page=' + SEARCH_DATA.startPage;
-        await wait(1000)
-        return true
-    }
+        const pageIndex = await currentPage();
+        if (pageIndex === 1 && SEARCH_DATA.startPage > 1) {
+            window.location.href = window.location.href + '&page=' + SEARCH_DATA.startPage;
+            await wait(1000)
+            return true
+        }
 
-    if (pageIndex >= SEARCH_DATA.maxPages + SEARCH_DATA.startPage - 1) {
-        downloadCsv(getSellers())
-        endWithSuccess('Done: all pages are searched')
-        return true
-    }
+        if (pageIndex >= SEARCH_DATA.maxPages + SEARCH_DATA.startPage - 1) {
+            downloadCsv(getSellers())
+            endWithSuccess('Done: all pages are searched')
+            return true
+        }
 
-    const btn = document.querySelector('nav button.rd-page--button span.svg-icon--rotate90');
-    if (!btn) {
-        downloadCsv(getSellers())
-        endWithSuccess('Done: no more pages')
+        const btn = document.querySelector('nav button.rd-page--button span.svg-icon--rotate90');
+        if (!btn) {
+            downloadCsv(getSellers())
+            endWithSuccess('Done: no more pages')
+            return true;
+        }
+
+        btn.click()
+        setTimeout(mainHandler, 0);
         return true;
     }
 
-    btn.click()
-    setTimeout(mainHandler, 0);
-    return true;
+    async function handleCategoryPages() {
+        await waitCategoryPageLoaded()
+        await wait(3000);
+        if (await hasSubCategoryUrls()) {
+            const subCategoryUrls = await scrapeAllSubCategoryUrls()
+            subCategoryUrls.forEach(one => addCategoryUrl(one));
+            const nextCategoryUrl = await popNextCategoryUrl();
+            if (!nextCategoryUrl) {
+                downloadCsv(getSellers())
+                endWithSuccess('Done: all categories are searched. #1')
+                return true
+            }
+
+            window.location.href = nextCategoryUrl;
+            await wait(1000)
+            return true
+        } else {
+            await scrapeAllSellersOnPage();
+            const pageIndex = await currentPage();
+            if (pageIndex === 1 && SEARCH_DATA.startPage > 1) {
+                window.location.href = window.location.href + '&page=' + SEARCH_DATA.startPage;
+                await wait(1000)
+                return true
+            }
+
+            if (pageIndex >= SEARCH_DATA.maxPages + SEARCH_DATA.startPage - 1) {
+                const nextCategoryUrl = await popNextCategoryUrl();
+                if (!nextCategoryUrl) {
+                    downloadCsv(getSellers())
+                    endWithSuccess('Done: all categories are searched. #2')
+                    return true
+                }
+                window.location.href = nextCategoryUrl;
+                await wait(1000)
+                return true
+            }
+
+            const btn = document.querySelector('nav button.rd-page--button span.svg-icon--rotate90');
+            if (!btn) {
+                const nextCategoryUrl = await popNextCategoryUrl();
+                if (!nextCategoryUrl) {
+                    downloadCsv(getSellers())
+                    endWithSuccess('Done: all categories are searched. #3')
+                    return true
+                }
+                window.location.href = nextCategoryUrl;
+                await wait(1000)
+                return true
+            }
+
+            btn.click()
+            setTimeout(mainHandler, 0);
+            return true;
+        }
+
+        return;
+    }
+
+    if (window.location.href.includes('/c/')) {
+        return await handleCategoryPages();
+    }
+    if (window.location.href.includes('/s/')) {
+        return await handleSearchPages();
+    }
+    return false;
+
 }
 
 async function findProductOnPage(id) {
@@ -343,6 +482,7 @@ function showStartForm(formData) {
         resetLink.addEventListener('click', event => {
             event.stopImmediatePropagation();
             localStorage.setItem('sellers', JSON.stringify({}))
+            localStorage.setItem('categoryUrls', JSON.stringify([]))
         });
         formContainer.appendChild(resetLink)
     }
@@ -357,7 +497,7 @@ function showStartForm(formData) {
             maxPrice: extractInt(document.getElementById('maxPrice').value),
             startPage: extractInt(document.getElementById('startPage').value),
             keyword: document.getElementById('keyword').value,
-            step: Step.INPUT_PRICE,
+            step: document.getElementById('keyword').value.startsWith('http') ? 'CATEGORY_SEARCH' : Step.INPUT_PRICE,
             errorsCnt: 0
         })
         //console.log('Search data:', SEARCH_DATA);
