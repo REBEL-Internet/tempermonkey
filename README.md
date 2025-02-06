@@ -33,14 +33,27 @@ Follow these steps to install Tampermonkey and then install the Kaufland Visitor
 3. Click the "Install" button.
 4. Follow the prompts to complete the installation.
 
-#### Step 2: Install the Kaufland Visitor Userscript
+#### Step 2: Install Userscript
 
 1. Open your browser where Tampermonkey is installed.
-2. Navigate to the raw URL of the userscript: [Kaufland Visitor Userscript](https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/scripts/kaufland-visitor.user.js).
+2. Navigate to the raw URL of the userscript:
+   * [Kaufland Visitor Userscript](https://raw.githubusercontent.com/REBEL-Internet/tempermonkey/main/scripts/kaufland-visitor.user.js).
+   * [Kaufland EmailScraper Userscript](https://github.com/REBEL-Internet/tempermonkey/raw/refs/heads/main/scripts/kaufland-email.scrapper.user.js).
+   * [Alibaba Visitor Userscript](https://github.com/REBEL-Internet/tempermonkey/raw/refs/heads/main/scripts/alibaba-visitor.user.js).
 
 3. Tampermonkey should detect the script and prompt you to install it. You will see a Tampermonkey installation dialog.
 4. Click the "Install" button in the Tampermonkey dialog to install the script.
-5. To work with script just open "https://www.kaufland.de/" page in your browser with installed script.
+
+#### Step 3: Run Userscript
+
+To work with script just open target website for the script in your browser with installed script.
+
+###### Kaufland Visitor Userscript
+
+1. Visit https://www.kaufland.de/
+2. Wait form with settings appear.
+3. CLick "Run Script". Better run it in separate browser window, minimize it and do not touch until script finished.
+4. Once completed csv file with results is downloaded automatically.
 
 ### Summary
 

@@ -216,7 +216,7 @@ async function scrapeProductPage(productId) {
         const seller = {
             sellerId: '',
             sellerName: sellerName ?? '',
-            representativeName1: representativeName1 ?? '',
+            representativeName: representativeName1 ?? '',
             representativeName2: representativeName2 ?? '',
             representativeName3: representativeName3 ?? '',
             foundAt: new Date().toISOString(),
@@ -279,8 +279,6 @@ async function mainHandler() {
             stopBlinkingTitle()
             if (window.location.href === MAIN_PAGE_URL) {
                 await wait(1000);
-                resetSellers();
-                resetCategoryUrls();
                 showStartForm({
                     version: MAIN_SCRIPT_VERSION
                 });
@@ -633,8 +631,8 @@ function showStartForm(formData) {
         resetLink.innerHTML = `Remove previous sellers`;
         resetLink.addEventListener('click', event => {
             event.stopImmediatePropagation();
-            localStorage.setItem('sellers', JSON.stringify({}))
-            localStorage.setItem('categoryUrls', JSON.stringify([]))
+            resetSellers();
+            resetCategoryUrls();
         });
         formContainer.appendChild(resetLink)
     }
@@ -642,6 +640,8 @@ function showStartForm(formData) {
     // Handle form submission
     document.getElementById('inputForm').addEventListener('submit', function(event) {
         event.preventDefault();
+        resetSellers();
+        resetCategoryUrls();
         setSearchData({
             delay: extractInt(document.getElementById('delay').value ?? '30'),
             maxPages: extractInt(document.getElementById('maxPages').value),
@@ -652,7 +652,7 @@ function showStartForm(formData) {
             step: document.getElementById('keyword').value.startsWith('http') ? 'CATEGORY_SEARCH' : Step.INPUT_PRICE,
             errorsCnt: 0
         })
-        //console.log('Search data:', SEARCH_DATA);
+        // console.log('Search data:', SEARCH_DATA);
         // Remove the form after submission
         document.body.removeChild(formContainer);
         document.body.removeChild(overlapContainer);
@@ -752,6 +752,18 @@ function escapeCSVField(value) {
 
 function createLinkWithCsv(sellers) {
     if (sellers.length === 0) return null;
+    /*
+        const seller = {
+            sellerId: '',
+            sellerName: sellerName,
+            representativeName: representativeName1,
+            representativeName2: representativeName2,
+            representativeName3: representativeName3,
+            foundAt: new Date().toISOString(),
+            emails: extractEmailsFromSellerText(imprintText),
+            imprint: imprintText
+        }
+    */
     const csvContent =
         'Found,SellerId,SellerName,Email,Representative1,Representative2,Representative3,imprint\n'
         + Object.values(sellers).map(
