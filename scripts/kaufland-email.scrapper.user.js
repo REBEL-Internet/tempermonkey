@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2024.12.03.000
+// @version      2025.02.06.000
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -11,9 +11,14 @@
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_deleteValue
+// @grant        GM_openInTab
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2024.12.03.000'
+const MAIN_SCRIPT_VERSION = '2025.02.06.000'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -33,7 +38,27 @@ if (!localStorage.getItem('categoryUrls')) {
 
 let titleDiv;
 
+function incErrorCnt() {
+    setSearchData({errorsCnt: SEARCH_DATA.errorsCnt + 1})
+}
+
+function updateTitleDiv() {
+    const categories = getCategoryUrls();
+    const sellers = getSellers();
+    const text = `RUNNING. Categories: ${Object.keys(categories).length}; Sellers: ${Object.keys(sellers)?.length};  Errors: ${SEARCH_DATA?.errorsCnt ?? 0}`
+    if (!titleDiv) {
+        titleDiv = createInfoTitle(text)
+    } else {
+        titleDiv.textContent = text
+    }
+}
+
 //========CATEGORIES==========================================
+
+function resetCategoryUrls() {
+    localStorage.setItem('categoryUrls', JSON.stringify([]));
+    updateTitleDiv()
+}
 
 function addCategoryUrl(categoryUrl) {
     const existed = getCategoryUrls()
@@ -41,9 +66,7 @@ function addCategoryUrl(categoryUrl) {
     set.add(categoryUrl)
     const modified = Array.from(set);
     localStorage.setItem('categoryUrls', JSON.stringify(modified));
-    if (titleDiv) {
-        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(modified)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
-    }
+    updateTitleDiv()
 }
 
 function popNextCategoryUrl() {
@@ -51,9 +74,7 @@ function popNextCategoryUrl() {
     if (!existed.length) return null;
     const url = existed.pop();
     localStorage.setItem('categoryUrls', JSON.stringify(existed));
-    if (titleDiv) {
-        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(existed)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
-    }
+    updateTitleDiv()
     return url;
 }
 
@@ -69,13 +90,16 @@ function getCategoryUrls() {
 
 //======SELLERS===================================================
 
+function resetSellers() {
+    localStorage.setItem('sellers', JSON.stringify({}));
+    updateTitleDiv()
+}
+
 function addSeller(seller) {
     const existed = getSellers()
     existed[seller.id] = seller
     localStorage.setItem('sellers', JSON.stringify(existed));
-    if (titleDiv) {
-        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(existed)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
-    }
+    updateTitleDiv()
 }
 
 function addSellers(sellers) {
@@ -84,9 +108,7 @@ function addSellers(sellers) {
         if (s) existed[s.id] = s
     })
     localStorage.setItem('sellers', JSON.stringify(existed));
-    if (titleDiv) {
-        titleDiv.textContent = `RUNNING. FOUND ${Object.keys(existed)?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`
-    }
+    updateTitleDiv()
 }
 
 function getSellers() {
@@ -100,13 +122,142 @@ function getSellers() {
 
 //================================================================
 
+
+async function getPageContent(url, dataKey) {
+    let retry = 3;
+    while (true) {
+        console.log(`Request data ${dataKey} on url: ${url}`)
+        const newTab = GM_openInTab(url, { active: false, insert: true, setParent: true });
+        try {
+            let timeout;
+            return await Promise.race([
+                new Promise((r, rj) => {
+                    const listenerId = GM_addValueChangeListener(dataKey, function(name, oldValue, newValue, remote) {
+                        timeout && clearTimeout(timeout)
+                        GM_removeValueChangeListener(listenerId)
+                        console.log(`Received ${dataKey} ${newValue ? 'some data' : 'no data'}`)
+                        GM_setValue(dataKey, null); // Reset the value to avoid duplicate triggers
+                        newValue ? r(newValue) : rj(new Error(`Failed get page content ${dataKey} on url: ${url}`));
+                    });
+                }),
+                new Promise((_, r) => {
+                    timeout = setTimeout(() => r(new Error(`Timeout scrape page: ${url}`)), 120_000)
+                })
+            ])
+        } catch (e) {
+            incErrorCnt()
+            console.log(`Request data ${dataKey} on url: ${url} Error ${e?.toString()}`)
+            if (--retry === 0) break;
+            await wait((3 - retry) * SEARCH_DATA?.delay * 1000)
+        }
+    }
+    return '';
+}
+
+function waitForElementToDisappear(selector) {
+    return new Promise((resolve) => {
+        const element = document.querySelector(selector);
+        if (!element) {
+            resolve();
+            return;
+        }
+
+        const observer = new MutationObserver((mutationsList, observer) => {
+            if (!document.contains(element)) {
+                observer.disconnect();
+                resolve();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true, // Observe direct children
+            subtree: true, // Observe all descendants
+        });
+    });
+}
+
+function waitForElementToAppear(selector) {
+    return new Promise(resolve => {
+        function checkForElement() {
+            const element = document.querySelector(selector);
+            element ? resolve() : setTimeout(checkForElement, 500);
+        }
+        checkForElement()
+    });
+}
+
+async function scrapeProductPage(productId) {
+    const result = {
+        productId: productId,
+        sellers: []
+    }
+
+    const btns = document.querySelectorAll('button.pdp-info-card--seller');
+    for (const btn of btns) {
+        await btn.click();
+        await waitForElementToAppear('#el-sellerInfoLegalDataImprintAccordion')
+        await wait(1000);
+        await document.querySelector('#el-sellerInfoLegalDataImprintAccordion').click()
+
+        await waitForElementToAppear('.rd-seller-info__name')
+        await wait(3000);
+        const sellerName = document.querySelector('div.rd-seller-info__name').innerText;
+        const imprintText = document.querySelector('#co-sellerInfoLegalDataImprintAccordion').innerText;
+
+        const regexName = /Name\s+des\s+Diensteanbieters:\s*(.*)\s/ig;
+        const representativeName1 = (regexName.exec(imprintText) ?? [])[1];
+
+        const regexName2 = /Vertretungsberechtigte:\s*(.*)\s/ig;
+        const representativeName2 = (regexName.exec(imprintText) ?? [])[1];
+
+        const regexName3 = /vertreten\s+durch:\s*(.*)\s/ig;
+        const representativeName3 = (regexName.exec(imprintText) ?? [])[1];
+
+        const seller = {
+            sellerId: '',
+            sellerName: sellerName ?? '',
+            representativeName1: representativeName1 ?? '',
+            representativeName2: representativeName2 ?? '',
+            representativeName3: representativeName3 ?? '',
+            foundAt: new Date().toISOString(),
+            emails: extractEmailsFromSellerText(imprintText),
+            imprint: imprintText
+        }
+        result.sellers.push(seller);
+        await waitForElementToAppear('button.rd-overlay__button')
+        await document.querySelector('button.rd-overlay__button').click();
+    }
+
+    return result;
+}
+
+async function waitCaptchaResolve() {
+    const captcha = document.querySelector('.captcha-box');
+    if (captcha) {
+        window.focus();
+        await waitForElementToDisappear('.captcha-box')
+    }
+}
+
 async function mainHandler() {
-    //await scrapeAllSellersOnPage()
-    //return
-    //const info = await scrapeSellerData(29717500)
-    //alert(JSON.stringify(info))
-    //const sellerIds = await scrapeSellerIdsByProductId(382679048)
-    //alert(sellerIds)
+    await waitCaptchaResolve();
+
+    if (window.location.href.startsWith('https://www.kaufland.de/product/')) {
+        const url = window.location.href;
+        const parts = url.split('/')
+        if (parts.length < 5) {
+            window.close();
+            return;
+        }
+        const productId = parts[4];
+        const dataKey = `Product_${productId}`
+        GM_setValue(dataKey, await scrapeProductPage(productId));
+        window.close(); // Close tab after scraping
+        return
+    }
+
+    //const test = await scrapeProductData(477359320)
+    //console.log(test);
     //return;
 
     if (!SEARCH_DATA?.delay) {
@@ -123,17 +274,18 @@ async function mainHandler() {
             setSearchData({step: undefined})
         };
 
+        updateTitleDiv()
         if (!SEARCH_DATA?.step) {
             stopBlinkingTitle()
             if (window.location.href === MAIN_PAGE_URL) {
                 await wait(1000);
+                resetSellers();
+                resetCategoryUrls();
                 showStartForm({
                     version: MAIN_SCRIPT_VERSION
                 });
             }
             return;
-        } else {
-            titleDiv = createInfoTitle(`RUNNING. FOUND ${Object.keys(getSellers())?.length} Error: ${SEARCH_DATA?.errorsCnt ?? 0}`)
         }
         if (await handleHomePage()) return;
         if (await handleSearchPage()) return;
@@ -520,47 +672,31 @@ function extractUniqueSellerIds(content) {
     const regex = /(?:id_seller|sellerId)=(\d+)/g;
     const ids = new Set();  // Use a Set to store unique IDs
     let match;
-
     while ((match = regex.exec(content)) !== null) {
         ids.add(match[1]);
     }
-
     const result = Array.from(ids);
     console.log('Unique IDs:', result);
+    if (!result.length) {
+        console.log(content)
+    }
     return result
 }
 
-async function scrapeSellerIdsByProductId(productId) {
-    let response;
-    let retry = 3;
-    while (true) {
-        console.log(`Request product: ${productId}`)
-        response = await GM.xmlHttpRequest({
-            method: 'GET',
-            url: `https://www.kaufland.de/product/${productId}/`
-        });
-
-        console.log(`Response product: ${productId}: ${response.status}`)
-        if (response.status !== 429) break;
-        setSearchData({errorsCnt: SEARCH_DATA.errorsCnt + 1})
-        if (--retry === 0) break;
-        await wait((3-retry) * SEARCH_DATA?.delay * 1000)
-    }
-    const content = response.responseText;
-    if (response.status === 200 && content) {
-        return extractUniqueSellerIds(content)
-    }
-    setSearchData({errorsCnt: SEARCH_DATA.errorsCnt + 1})
-    return [];
+async function scrapeProductData(productId) {
+    console.log(`Request product: ${productId}`)
+    const urlToScrape = `https://www.kaufland.de/product/${productId}/`;
+    const dataKey = `Product_${productId}`;
+    return await getPageContent(urlToScrape, dataKey)
 }
 
 //E-Mail-Adresse: ​qinfo@akowi.com
 function extractEmailsFromSellerText(content) {
     //E-Mail-Adresse:\s*
-    const regex = /E-Mail-Adresse:\s*(.*)\</g;
+    const regex = /E-Mail-Adresse:\s*(.*)\s/g;
     const emails = new Set();
     let match;
-    while ((match = regex.exec(content)) !== null) {
+    while (match = regex.exec(content)) {
         emails.add(match[1]);
     }
 
@@ -569,53 +705,24 @@ function extractEmailsFromSellerText(content) {
     return result
 }
 
-async function scrapeSellerData(sellerId) {
-    let response;
-    let retry = 3;
-    while (true) {
-        console.log(`Request seller: ${sellerId}`)
-        response = await GM.xmlHttpRequest({
-            method: 'GET',
-            url: `https://www.kaufland.de/backend/product-detail-page/v1/${sellerId}/seller-info`,
-            responseType: 'json',
-        });
-        console.log(`Response seller: ${sellerId}: ${response.status}`)
-        if (response.status !== 429) break;
-        setSearchData({errorsCnt: SEARCH_DATA.errorsCnt + 1})
-        if (--retry === 0) break;
-        await wait((3-retry) * SEARCH_DATA.delay * 1000)
-    }
-
-    if (response.status === 200 && response.response?.sellerInformation) {
-        const sellerInfo = response.response.sellerInformation;
-        return {
-            id: sellerId,
-            foundAt: new Date().toISOString(),
-            name: sellerInfo.name,
-            emails: extractEmailsFromSellerText(sellerInfo.legalData.imprint),
-            sellerCountryISO: sellerInfo.sellerCountryISO
-        }
-    }
-
-    setSearchData({errorsCnt: SEARCH_DATA.errorsCnt + 1})
-    return undefined;
-}
-
 async function scrapeAllSellersOnPage() {
     const products = await getProductsOnPage()
-    const promises = []
-    for (const product of products) {
-        await wait(3000);
-        promises.push((async () => {
-            const sellerIds = await scrapeSellerIdsByProductId(product.id)
-            if (sellerIds.length && !getSellers()[sellerIds[0]]) {
-                const seller = await scrapeSellerData(sellerIds[0])
-                if (seller) addSeller(seller)
-            }
-        })())
+    const leftProducts = [...products];
+    while (leftProducts.length) {
+        const promises = []
+        let cnt = Math.min(7, leftProducts.length);
+        while (cnt-- > 0) {
+            const product = leftProducts.shift();
+            await wait(2000);
+            promises.push((async () => {
+                const productData = await scrapeProductData(product.id)
+                productData.sellers.forEach(seller => addSeller(seller))
+                console.log(`Done for ${product.id}. Sellers: ${Object.keys(getSellers())?.length}`)
+            })())
+        }
+        await Promise.all(promises)
+        await wait(5000);
     }
-
-    await Promise.all(promises)
 }
 
 
@@ -631,12 +738,24 @@ function downloadCsv(sellers) {
     document.body.removeChild(link);
 }
 
+function escapeCSVField(value) {
+    if (typeof value !== 'string') {
+        value = String(value);
+    }
+
+    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+        value = value.replace(/"/g, '""');
+        value = `"${value}"`;
+    }
+    return value;
+}
+
 function createLinkWithCsv(sellers) {
     if (sellers.length === 0) return null;
     const csvContent =
-        'Found,SellerId,Name,Email,EmailFixed\n'
+        'Found,SellerId,SellerName,Email,Representative1,Representative2,Representative3,imprint\n'
         + Object.values(sellers).map(
-            s => `"${s.foundAt}","${s.id}","${s.name}","${s.emails[0] ?? 'not found'}","${s.emails[0]?.slice(2) ?? 'not found'}"`
+            s => `"${s.foundAt}","${s.sellerId}","${s.sellerName}","${s.emails[0] ?? 'not found'}","${s.representativeName1}","${s.representativeName2}","${s.representativeName3}",${escapeCSVField(s.imprint)}`
         ).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
