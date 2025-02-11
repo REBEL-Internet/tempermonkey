@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.06.000
+// @version      2025.02.11.000
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.06.000'
+const MAIN_SCRIPT_VERSION = '2025.02.11.000'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -419,7 +419,11 @@ async function handleSearchPage() {
     async function handleCategoryPages() {
         await waitCategoryPageLoaded()
         await wait(3000);
-        if (await hasSubCategoryUrls()) {
+        if (
+            !document.querySelector('div.result-header') // no result and have sub categories
+            && await hasSubCategoryUrls()
+        ) {
+
             const subCategoryUrls = await scrapeAllSubCategoryUrls()
             subCategoryUrls.forEach(one => addCategoryUrl(one));
             const nextCategoryUrl = await popNextCategoryUrl();
@@ -433,6 +437,7 @@ async function handleSearchPage() {
             await wait(1000)
             return true
         } else {
+
             await scrapeAllSellersOnPage();
             const pageIndex = await currentPage();
             if (pageIndex === 1 && SEARCH_DATA.startPage > 1) {
@@ -710,10 +715,10 @@ async function scrapeAllSellersOnPage() {
     const leftProducts = [...products];
     while (leftProducts.length) {
         const promises = []
-        let cnt = Math.min(7, leftProducts.length);
+        let cnt = Math.min(5, leftProducts.length);
         while (cnt-- > 0) {
             const product = leftProducts.shift();
-            await wait(2000);
+            await wait(1000);
             promises.push((async () => {
                 const productData = await scrapeProductData(product.id)
                 productData.sellers.forEach(seller => addSeller(seller))
@@ -721,7 +726,7 @@ async function scrapeAllSellersOnPage() {
             })())
         }
         await Promise.all(promises)
-        await wait(5000);
+        await wait(3000);
     }
 }
 
