@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.12.001
+// @version      2025.02.12.002
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.12.001'
+const MAIN_SCRIPT_VERSION = '2025.02.12.002'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -740,10 +740,10 @@ async function scrapeAllSellersOnPage() {
     const leftProducts = [...products];
     while (leftProducts.length) {
         const promises = []
-        let cnt = Math.min(5, leftProducts.length);
+        let cnt = Math.min(7, leftProducts.length);
         while (cnt-- > 0) {
             const product = leftProducts.shift();
-            await wait(500);
+            await wait(1000);
             promises.push((async () => {
                 const productData = await scrapeProductData(product.id)
                 if (Array.isArray(productData?.sellers)) {
