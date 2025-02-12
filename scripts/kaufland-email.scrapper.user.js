@@ -134,6 +134,8 @@ async function getPageContent(url, dataKey) {
                 new Promise((r, rj) => {
                     listenerId = GM_addValueChangeListener(dataKey, function(name, oldValue, newValue, remote) {
                         console.log(`Received ${dataKey} ${newValue ? 'some data' : 'no data'}`)
+                        GM_removeValueChangeListener(listenerId);
+                        listenerId = undefined;
                         GM_setValue(dataKey, null); // Reset the value to avoid duplicate triggers
                         newValue ? r(newValue) : rj(new Error(`Failed get page content ${dataKey} on url: ${url}`));
                     });
@@ -210,7 +212,7 @@ async function scrapeProductPage(productId) {
         await document.querySelector('#el-sellerInfoLegalDataImprintAccordion').click()
 
         await waitForElementToAppear('.rd-seller-info__name')
-        await wait(3000);
+        await wait(1000);
         const sellerName = document.querySelector('div.rd-seller-info__name').innerText;
         const imprintText = document.querySelector('#co-sellerInfoLegalDataImprintAccordion').innerText;
 
@@ -428,7 +430,7 @@ async function handleSearchPage() {
 
     async function handleCategoryPages() {
         await waitCategoryPageLoaded()
-        await wait(3000);
+        await wait(1000);
         if (
             !document.querySelector('div.result-header') // no result and have sub categories
             && await hasSubCategoryUrls()
@@ -728,11 +730,15 @@ async function scrapeAllSellersOnPage() {
         let cnt = Math.min(5, leftProducts.length);
         while (cnt-- > 0) {
             const product = leftProducts.shift();
-            await wait(1000);
+            await wait(500);
             promises.push((async () => {
                 const productData = await scrapeProductData(product.id)
-                productData?.sellers.forEach(seller => addSeller(seller))
-                console.log(`Done for ${product.id}. Sellers: ${Object.keys(getSellers())?.length}`)
+                if (Array.isArray(productData?.sellers)) {
+                    productData?.sellers.forEach(seller => addSeller(seller))
+                    console.log(`Done for ${product.id}. Sellers: ${Object.keys(getSellers())?.length}`)
+                } else {
+                    console.log(`Bad data from product page ${JSON.stringify(productData)}`)
+                }
             })())
         }
         await Promise.all(promises)
