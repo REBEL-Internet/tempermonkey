@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.11.000
+// @version      2025.02.12.000
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.11.000'
+const MAIN_SCRIPT_VERSION = '2025.02.12.000'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -128,20 +128,18 @@ async function getPageContent(url, dataKey) {
     while (true) {
         console.log(`Request data ${dataKey} on url: ${url}`)
         const newTab = GM_openInTab(url, { active: false, insert: true, setParent: true });
+        let timeout, listenerId;
         try {
-            let timeout;
             return await Promise.race([
                 new Promise((r, rj) => {
-                    const listenerId = GM_addValueChangeListener(dataKey, function(name, oldValue, newValue, remote) {
-                        timeout && clearTimeout(timeout)
-                        GM_removeValueChangeListener(listenerId)
+                    listenerId = GM_addValueChangeListener(dataKey, function(name, oldValue, newValue, remote) {
                         console.log(`Received ${dataKey} ${newValue ? 'some data' : 'no data'}`)
                         GM_setValue(dataKey, null); // Reset the value to avoid duplicate triggers
                         newValue ? r(newValue) : rj(new Error(`Failed get page content ${dataKey} on url: ${url}`));
                     });
                 }),
-                new Promise((_, r) => {
-                    timeout = setTimeout(() => r(new Error(`Timeout scrape page: ${url}`)), 120_000)
+                new Promise((_, rj) => {
+                    timeout = setTimeout(() => rj(new Error(`Timeout scrape page: ${url}`)), 30_000)
                 })
             ])
         } catch (e) {
@@ -149,6 +147,18 @@ async function getPageContent(url, dataKey) {
             console.log(`Request data ${dataKey} on url: ${url} Error ${e?.toString()}`)
             if (--retry === 0) break;
             await wait((3 - retry) * SEARCH_DATA?.delay * 1000)
+        } finally {
+            if (newTab && !newTab.closed && newTab.close) {
+                newTab.close()
+            }
+            if (listenerId) {
+                GM_removeValueChangeListener(listenerId);
+                listenerId = undefined;
+            }
+            if (timeout) {
+                clearTimeout(timeout);
+                timeout = undefined;
+            }
         }
     }
     return '';
@@ -721,7 +731,7 @@ async function scrapeAllSellersOnPage() {
             await wait(1000);
             promises.push((async () => {
                 const productData = await scrapeProductData(product.id)
-                productData.sellers.forEach(seller => addSeller(seller))
+                productData?.sellers.forEach(seller => addSeller(seller))
                 console.log(`Done for ${product.id}. Sellers: ${Object.keys(getSellers())?.length}`)
             })())
         }
