@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.12.000
+// @version      2025.02.12.001
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.12.000'
+const MAIN_SCRIPT_VERSION = '2025.02.12.001'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -515,6 +515,7 @@ async function getProductsOnPage() {
     async function getData() {
         let data = unsafeWindow.__SEARCHFRONTEND__;
         while (!data) {
+            console.log(`Reload page: ${window.location.href}`);
             window.location.reload();
             await wait(4000)
             await waitForState();
@@ -523,9 +524,21 @@ async function getProductsOnPage() {
         return data;
     }
 
+    async function getProductElements() {
+        let productElements = document.querySelectorAll('div.results article.product')
+        while (!productElements.length) {
+            console.log(`Reload page: ${window.location.href}`);
+            window.location.reload();
+            await wait(4000)
+            await waitForState();
+            productElements = document.querySelectorAll('div.results article.product')
+        }
+        return productElements;
+    }
+
     //withLinks ? 'div.results article.product a.product-link' : 'div.results article.product'
-    const productElements = document.querySelectorAll('div.results article.product')
     const data = await getData();
+    const productElements = await getProductElements();
     if (data.state.results.products.length !== productElements.length) {
         throw new Error(`Mismatch number products ${data.state.results.products.length} vs ${productElements.length}`)
     }
