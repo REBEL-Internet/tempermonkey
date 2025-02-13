@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.12.002
+// @version      2025.02.13.003
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.12.002'
+const MAIN_SCRIPT_VERSION = '2025.02.13.003'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -97,16 +97,14 @@ function resetSellers() {
 
 function addSeller(seller) {
     const existed = getSellers()
-    existed[seller.id] = seller
+    existed[seller.sellerName] = seller
     localStorage.setItem('sellers', JSON.stringify(existed));
     updateTitleDiv()
 }
 
 function addSellers(sellers) {
     const existed = getSellers()
-    sellers.forEach(s => {
-        if (s) existed[s.id] = s
-    })
+    sellers.forEach(s => existed[s.sellerName] = s)
     localStorage.setItem('sellers', JSON.stringify(existed));
     updateTitleDiv()
 }
@@ -747,10 +745,10 @@ async function scrapeAllSellersOnPage() {
             promises.push((async () => {
                 const productData = await scrapeProductData(product.id)
                 if (Array.isArray(productData?.sellers)) {
-                    productData?.sellers.forEach(seller => addSeller(seller))
-                    console.log(`Done for ${product.id}. Sellers: ${Object.keys(getSellers())?.length}`)
+                    addSellers(productData?.sellers)
+                    console.log(`Compete get data ${product.id}. Data: ${JSON.stringify(productData)}`)
                 } else {
-                    console.log(`Bad data from product page ${JSON.stringify(productData)}`)
+                    console.log(`Fail get data ${product.id}. Data: ${JSON.stringify(productData)}`)
                 }
             })())
         }
