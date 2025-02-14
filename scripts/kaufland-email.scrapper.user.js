@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kaufland Email Scrapper
 // @namespace    kaufland
-// @version      2025.02.13.003
+// @version      2025.02.14.000
 // @description
 // @author       Dmitry.Pismennyy<dmitry.p@rebelinterner.eu>
 // @match        https://www.kaufland.de/*
@@ -18,7 +18,7 @@
 // @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
-const MAIN_SCRIPT_VERSION = '2025.02.13.003'
+const MAIN_SCRIPT_VERSION = '2025.02.14.000'
 const MAIN_PAGE_URL = 'https://www.kaufland.de/';
 
 (async function() {
@@ -214,23 +214,22 @@ async function scrapeProductPage(productId) {
         const sellerName = document.querySelector('div.rd-seller-info__name').innerText;
         const imprintText = document.querySelector('#co-sellerInfoLegalDataImprintAccordion').innerText;
 
-        const regexName = /Name\s+des\s+Diensteanbieters:\s*(.*)\s/ig;
-        const representativeName1 = (regexName.exec(imprintText) ?? [])[1];
-
-        const regexName2 = /Vertretungsberechtigte:\s*(.*)\s/ig;
-        const representativeName2 = (regexName.exec(imprintText) ?? [])[1];
-
-        const regexName3 = /vertreten\s+durch:\s*(.*)\s/ig;
-        const representativeName3 = (regexName.exec(imprintText) ?? [])[1];
+        const personName = ((/Vertretungsberechtigte:\s*(.*)\s/ig).exec(imprintText) ?? [])[1];
+        const representativeName = ((/Name\s+des\s+Diensteanbieters:\s*(.*)\s/ig).exec(imprintText) ?? [])[1];
+        const representativeName2 = ((/vertreten\s+durch:\s*(.*)\s/ig).exec(imprintText) ?? [])[1];
+        const phone = ((/Telefon:\s*(.*)\s/ig).exec(imprintText) ?? [])[1];
+        const regNum = ((/Registernummer:\s*(\d*)\s/ig).exec(imprintText) ?? [])[1];
 
         const seller = {
             sellerId: '',
             sellerName: sellerName ?? '',
-            representativeName: representativeName1 ?? '',
+            personName: personName ?? '',
+            representativeName: representativeName ?? '',
             representativeName2: representativeName2 ?? '',
-            representativeName3: representativeName3 ?? '',
             foundAt: new Date().toISOString(),
             emails: extractEmailsFromSellerText(imprintText),
+            phone: phone,
+            regNum: regNum,
             imprint: imprintText
         }
         result.sellers.push(seller);
@@ -782,25 +781,29 @@ function escapeCSVField(value) {
     return value;
 }
 
+function sellerToCsvLine(s) {
+    return `"${s.foundAt}","${s.sellerId}","${s.sellerName}","${s.personName}","${s.emails[0] ?? 'not found'}","${s.phone}","${s.representativeName1}","${s.representativeName2}","${s.representativeName3}",${escapeCSVField(s.imprint)}`
+}
+
 function createLinkWithCsv(sellers) {
     if (sellers.length === 0) return null;
     /*
         const seller = {
             sellerId: '',
             sellerName: sellerName,
-            representativeName: representativeName1,
+            personName: personName
+            representativeName: representativeName,
             representativeName2: representativeName2,
-            representativeName3: representativeName3,
             foundAt: new Date().toISOString(),
             emails: extractEmailsFromSellerText(imprintText),
+            phone: phone,
+            regNum: regNum,
             imprint: imprintText
         }
     */
     const csvContent =
-        'Found,SellerId,SellerName,Email,Representative1,Representative2,Representative3,imprint\n'
-        + Object.values(sellers).map(
-            s => `"${s.foundAt}","${s.sellerId}","${s.sellerName}","${s.emails[0] ?? 'not found'}","${s.representativeName1}","${s.representativeName2}","${s.representativeName3}",${escapeCSVField(s.imprint)}`
-        ).join('\n');
+        'Found,SellerId,SellerName,PersonName,Email,Phone,Representative1,Representative2,imprint\n'
+        + Object.values(sellers).map(sellerToCsvLine).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
